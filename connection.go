@@ -12,7 +12,9 @@ import (
 	"crypto/tls"
 	"database/sql/driver"
 	"errors"
+	"log"
 	"net"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -161,7 +163,17 @@ func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	return stmt, err
 }
 
+func logProfile(method string, start time.Time, file string, line int, query string) {
+	end := time.Now()
+	t := float64(end.Sub(start).Nanoseconds()) / float64(time.Millisecond) * float64(time.Nanosecond)
+	log.Printf("method:%s\ttime:%5.2f\tfile:%s\tline:%d\tquery:%s", method, t, file, line, query)
+}
+
 func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	_, f, l, _ := runtime.Caller(3)
+	s := time.Now()
+	defer logProfile("Exec", s, f, l, query)
+
 	if mc.netConn == nil {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
@@ -207,6 +219,10 @@ func (mc *mysqlConn) exec(query string) error {
 }
 
 func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	_, f, l, _ := runtime.Caller(4)
+	s := time.Now()
+	defer logProfile("Query", s, f, l, query)
+
 	if mc.netConn == nil {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
